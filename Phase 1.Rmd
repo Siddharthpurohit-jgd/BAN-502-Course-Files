@@ -1,0 +1,129 @@
+---
+title: "BAN 502 – Course Project Phase 1"
+author: "Siddharth Purohit"
+output: word_document
+---
+
+## 1) Setup & Load Data
+
+```{r, echo=TRUE, warning=FALSE, message=FALSE}
+library(tidyverse)
+
+
+train <- read.csv("train.csv")
+
+```
+
+```{r}
+dim(train)
+str(train)
+summary(train)
+
+```
+
+```{r}
+table(train$failure)
+prop.table(table(train$failure))
+
+```
+```{r}
+ggplot(train, aes(x = failure)) +
+  geom_bar() +
+  labs(title = "Failure Distribution", x = "Failure", y = "Count")
+
+```
+```{r}
+na_count <- colSums(is.na(train))
+na_pct <- round(100 * na_count / nrow(train), 2)
+
+missing_summary <- data.frame(
+  variable = names(na_count),
+  missing_count = as.integer(na_count),
+  missing_percent = na_pct
+) |> 
+  arrange(desc(missing_count))
+
+missing_summary
+
+```
+```{r}
+missing_summary |>
+  filter(missing_count > 0) |>
+  ggplot(aes(x = reorder(variable, missing_percent), y = missing_percent)) +
+  geom_col() +
+  coord_flip() +
+  labs(title = "Missing Data Percent by Variable", x = "Variable", y = "Missing %")
+
+```
+
+```{r}
+train_rowwise <- na.omit(train)
+dim(train_rowwise)
+
+```
+
+```{r}
+train_colwise <- train[, colSums(is.na(train)) == 0]
+dim(train_colwise)
+
+```
+
+```{r}
+list(
+  original_dim = dim(train),
+  rowwise_dim  = dim(train_rowwise),
+  colwise_dim  = dim(train_colwise)
+)
+
+```
+```{r}
+# Convert failure to factor for grouping
+train$failure <- as.factor(train$failure)
+
+numeric_cols <- train |> select(where(is.numeric)) |> names()
+
+means_by_failure <- train |>
+  group_by(failure) |>
+  summarise(across(all_of(numeric_cols), ~ mean(.x, na.rm = TRUE))) 
+
+means_by_failure
+
+```
+```{r}
+ggplot(train, aes(x = failure, y = loading)) +
+  geom_boxplot() +
+  labs(title = "Loading by Failure", x = "Failure", y = "Loading")
+
+```
+```{r}
+failure_rate_by_code <- train |>
+  group_by(product_code) |>
+  summarise(
+    n = n(),
+    fail_rate = mean(failure == "Yes", na.rm = TRUE)
+  ) |>
+  arrange(desc(fail_rate))
+
+failure_rate_by_code
+```
+
+
+```{r}
+failure_rate_by_code |>
+  ggplot(aes(x = reorder(product_code, fail_rate), y = fail_rate)) +
+  geom_col() +
+  coord_flip() +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  labs(title = "Failure Rate by Product Code", x = "Product Code", y = "Failure Rate")
+
+```
+```{r}
+measurement_missing <- missing_summary |>
+  filter(str_detect(variable, "^measurement_")) |>
+  arrange(desc(missing_percent))
+
+measurement_missing
+
+```
+
+
